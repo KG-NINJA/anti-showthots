@@ -3,6 +3,59 @@
 
 const statusEl = document.getElementById('status');
 const testBtn = document.getElementById('testBtn');
+const permissionWrap = document.getElementById('permissionWrap');
+const motionPermissionBtn = document.getElementById('motionPermissionBtn');
+const permissionMsg = document.getElementById('permissionMsg');
+const mainUI = document.getElementById('mainUI');
+
+function enableMainUI() {
+  if (permissionWrap) permissionWrap.style.display = 'none';
+  if (mainUI) mainUI.style.display = '';
+  startMotionWatch();
+}
+
+function startMotionWatch() {
+  // 加速度センサーイベント登録
+  if (window.DeviceMotionEvent) {
+    window.addEventListener('devicemotion', handleMotion);
+  } else {
+    if(statusEl) statusEl.textContent = '加速度センサー非対応の端末です。';
+  }
+}
+
+// iOS13+ の場合はユーザー操作で許可が必要
+function isIOS() {
+  return /iP(hone|ad|od)/.test(navigator.userAgent);
+}
+
+if (motionPermissionBtn) {
+  motionPermissionBtn.addEventListener('click', async () => {
+    if (
+      typeof DeviceMotionEvent !== 'undefined' &&
+      typeof DeviceMotionEvent.requestPermission === 'function'
+    ) {
+      try {
+        const r = await DeviceMotionEvent.requestPermission();
+        if (r === 'granted') {
+          enableMainUI();
+        } else {
+          if(permissionMsg) permissionMsg.textContent = 'センサー利用が許可されませんでした。';
+        }
+      } catch(e) {
+        if(permissionMsg) permissionMsg.textContent = 'センサー利用許可リクエストに失敗しました。';
+      }
+    }
+  });
+}
+
+// 非iOSや許可不要な場合は自動でUI表示
+if (
+  typeof DeviceMotionEvent === 'undefined' ||
+  typeof DeviceMotionEvent.requestPermission !== 'function' ||
+  !isIOS()
+) {
+  enableMainUI();
+}
 
 let moving = false;
 let moveTimer = null;
