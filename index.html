@@ -87,12 +87,28 @@
     <button id="motionPermissionBtn" style="font-size:1.1em;padding:1em 2em;">センサー利用許可(iOS用)</button>
     <div id="permissionMsg" style="margin-top:1em;color:#c00;font-size:1em;"></div>
   </div>
+
+  <div id="infoBox" style="background:#fffbe7;border:1px solid #ffe082;padding:1em 1.2em;margin:1em auto 1.2em auto;max-width:480px;border-radius:0.7em;box-shadow:0 2px 8px #ffe08233;">
+    <b>【ご注意】</b><br>
+    このアプリは「画面を開いている間のみ」歩きスマホを検知できます。<br>
+    <span style="color:#d90000;font-weight:bold;">画面を閉じたり、他のアプリに切り替えると検知・警告できません。</span><br>
+    <br>
+    <b>ホーム画面に追加</b>してご利用いただくと、より便利に使えます。
+    <br>
+    <span style="font-size:0.95em;">（iOS: Safariの共有メニュー→「ホーム画面に追加」／Android: Chromeのメニュー→「ホーム画面に追加」）</span>
+  </div>
+
+  <div style="margin-bottom:1.5em;">
+    <button id="wakeLockBtn" style="font-size:1.1em;padding:1em 2em;">画面ON維持（Wake Lock）</button>
+    <span id="wakeLockState" style="margin-left:1em;font-size:1em;color:#2196f3;"></span>
+  </div>
+
   <div id="mainUI" style="display:none;">
     <div style="margin:1em 0;">
       <label for="sensitivity">感度（動きの大きさ閾値）: <span id="sensitivityValue">1.0</span></label>
       <input type="range" min="0.2" max="3" step="0.1" value="1.0" id="sensitivity" />
     </div>
-    <div id="status">端末の動きを検知中...</div>
+    <div id="status" style="font-size:1.7em;font-weight:bold;color:#d90000;text-shadow:0 0 8px #fff,0 0 16px #ffeb3b;">端末の動きを検知中...</div>
     <button id="testBtn">テスト警告</button>
   </div>
   <script src="main.js"></script>

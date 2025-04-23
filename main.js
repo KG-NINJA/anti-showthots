@@ -7,6 +7,53 @@ const permissionWrap = document.getElementById('permissionWrap');
 const motionPermissionBtn = document.getElementById('motionPermissionBtn');
 const permissionMsg = document.getElementById('permissionMsg');
 const mainUI = document.getElementById('mainUI');
+const wakeLockBtn = document.getElementById('wakeLockBtn');
+const wakeLockState = document.getElementById('wakeLockState');
+
+// Wake Lock API
+let wakeLock = null;
+async function requestWakeLock() {
+  if ('wakeLock' in navigator) {
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLockState.textContent = '画面ON維持中';
+      wakeLockBtn.textContent = '画面ON維持を解除';
+      wakeLock.addEventListener('release', () => {
+        wakeLockState.textContent = '解除されました';
+        wakeLockBtn.textContent = '画面ON維持（Wake Lock）';
+      });
+    } catch (e) {
+      wakeLockState.textContent = 'Wake Lock取得失敗';
+    }
+  } else {
+    wakeLockState.textContent = 'Wake Lock非対応端末';
+  }
+}
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release();
+    wakeLock = null;
+    wakeLockState.textContent = '解除されました';
+    wakeLockBtn.textContent = '画面ON維持（Wake Lock）';
+  }
+}
+if (wakeLockBtn) {
+  wakeLockBtn.addEventListener('click', () => {
+    if (!wakeLock) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+  });
+}
+// ページ非表示でWake Lock解除
+if (typeof document.visibilityState !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (wakeLock && document.visibilityState !== 'visible') {
+      releaseWakeLock();
+    }
+  });
+}
 
 function enableMainUI() {
   if (permissionWrap) permissionWrap.style.display = 'none';
