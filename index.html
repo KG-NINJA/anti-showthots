@@ -1,116 +1,466 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ANTI-SHOWTHOTS</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Mobile Collision Warning Demo</title>
   <style>
-    html {
-      box-sizing: border-box;
-      font-size: 16px;
+    :root {
+      color-scheme: light dark;
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0b0b0b;
+      color: #f5f5f5;
     }
-    *, *:before, *:after {
-      box-sizing: inherit;
-    }
+
     body {
-      font-family: sans-serif;
-      text-align: center;
       margin: 0;
-      padding: 0;
-      background: #fafafa;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
+      background: linear-gradient(180deg, #111 0%, #1f1f1f 100%);
     }
+
+    header {
+      width: min(960px, 100vw);
+      padding: clamp(1rem, 2vw, 2rem);
+      text-align: center;
+    }
+
     h1 {
-      font-size: 2.2rem;
-      margin: 2rem 0 1rem 0;
+      font-size: clamp(1.8rem, 5vw, 2.6rem);
+      margin: 0 0 0.5rem 0;
+      letter-spacing: 0.04em;
     }
-    #status {
-      font-size: 1.3rem;
-      margin: 2em 0;
-      min-height: 2.5em;
+
+    p {
+      margin: 0.3rem 0;
+      line-height: 1.4;
+      font-size: clamp(1rem, 2.2vw, 1.1rem);
     }
-    .alert {
-      color: #d90000;
-      font-weight: bold;
+
+    main {
+      width: min(960px, 100vw);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      padding: 0 clamp(0.5rem, 2vw, 1.5rem) 2rem;
+      box-sizing: border-box;
     }
-    label {
-      font-size: 1.1rem;
+
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 720px;
+      background: #000;
+      border-radius: 1.2rem;
+      overflow: hidden;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+      isolation: isolate;
     }
-    input[type="range"] {
-      width: 80vw;
-      max-width: 400px;
-      margin: 0.7em 0;
+
+    video,
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
-    #sensitivityValue {
-      font-weight: bold;
-      font-size: 1.1em;
+
+    canvas {
+      pointer-events: none;
     }
-    button {
-      font-size: 1.2rem;
-      padding: 0.7em 2em;
-      border-radius: 0.6em;
-      border: none;
-      background: #2196f3;
+
+    #warning {
+      position: absolute;
+      inset: auto 0 0 0;
+      margin: auto;
+      text-align: center;
+      padding: 0.75rem;
+      font-size: clamp(1.1rem, 3vw, 1.6rem);
+      font-weight: 700;
       color: #fff;
-      margin-bottom: 2em;
-      margin-top: 1em;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      background: linear-gradient(120deg, rgba(255, 0, 0, 0.85), rgba(255, 94, 0, 0.85));
+      text-shadow: 0 0 12px rgba(0, 0, 0, 0.8);
+      display: none;
+      z-index: 2;
+    }
+
+    #startButton {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(1.05rem, 3.2vw, 1.4rem);
+      font-weight: 600;
+      color: #111;
+      background: rgba(255, 255, 255, 0.9);
+      border: none;
       cursor: pointer;
-      transition: background 0.2s;
+      z-index: 3;
     }
-    button:active {
-      background: #1769aa;
+
+    #startButton:disabled {
+      opacity: 0.6;
+      cursor: progress;
     }
-    @media (max-width: 600px) {
-      html { font-size: 15px; }
-      h1 { font-size: 1.5rem; }
-      #status { font-size: 1.05rem; }
-      button { font-size: 1rem; }
-      label { font-size: 1rem; }
+
+    #status {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      text-align: center;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 0.75rem 1.25rem;
+      border-radius: 999px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
     }
-    @media (max-width: 400px) {
-      html { font-size: 13px; }
-      h1 { font-size: 1.1rem; }
-      #status { font-size: 0.95rem; }
-      button { font-size: 0.95rem; }
-      label { font-size: 0.95rem; }
+
+    #status strong {
+      color: #64ffda;
+    }
+
+    @media (max-width: 720px) {
+      .video-wrapper {
+        border-radius: 1rem;
+      }
     }
   </style>
+  <!-- TensorFlow.js and the COCO-SSD model are loaded from official CDN builds -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0/dist/tf.min.js" integrity="sha384-bvoo81AxIKwsAa0PUwNK2pao3PoeI7wZN7FcJTNd0pPFyBwPsC99p88A2XfsQMDg" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js" integrity="sha384-TWVaZrzJuTh0mAnIGUVvx5Uew6wkuMybJDUbviAszg7CKQuqY0gB5yoHXVNtb7Pl" crossorigin="anonymous"></script>
 </head>
 <body>
-  <h1>ANTI-SHOWTHOTS</h1>
-  <div id="permissionWrap" style="margin:2em 0;">
-    <button id="motionPermissionBtn" style="font-size:1.1em;padding:1em 2em;">センサー利用許可(iOS用)</button>
-    <div id="permissionMsg" style="margin-top:1em;color:#c00;font-size:1em;"></div>
-  </div>
-
-  <div id="infoBox" style="background:#fffbe7;border:1px solid #ffe082;padding:1em 1.2em;margin:1em auto 1.2em auto;max-width:480px;border-radius:0.7em;box-shadow:0 2px 8px #ffe08233;">
-    <b>【ご注意】</b><br>
-    このアプリは「画面を開いている間のみ」歩きスマホを検知できます。<br>
-    <span style="color:#d90000;font-weight:bold;">画面を閉じたり、他のアプリに切り替えると検知・警告できません。</span><br>
-    <br>
-    <b>ホーム画面に追加</b>してご利用いただくと、より便利に使えます。
-    <br>
-    <span style="font-size:0.95em;">（iOS: Safariの共有メニュー→「ホーム画面に追加」／Android: Chromeのメニュー→「ホーム画面に追加」）</span>
-  </div>
-
-  <div style="margin-bottom:1.5em;">
-    <button id="wakeLockBtn" style="font-size:1.1em;padding:1em 2em;">画面ON維持（Wake Lock）</button>
-    <span id="wakeLockState" style="margin-left:1em;font-size:1em;color:#2196f3;"></span>
-  </div>
-
-  <div id="mainUI" style="display:none;">
-    <div style="margin:1em 0;">
-      <label for="sensitivity">感度（動きの大きさ閾値）: <span id="sensitivityValue">1.0</span></label>
-      <input type="range" min="0.2" max="3" step="0.1" value="1.0" id="sensitivity" />
+  <header>
+    <h1>Mobile Collision Warning</h1>
+    <p>Point your phone's rear camera forward. The app detects nearby people and estimates the time to collision.</p>
+    <p>The warning triggers when a detected person is closer than <strong>1.5&nbsp;m</strong> or could collide within <strong>2 seconds</strong>.</p>
+  </header>
+  <main>
+    <div class="video-wrapper" id="videoWrapper">
+      <video id="camera" autoplay playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div id="warning">WARNING: Collision risk!</div>
+      <button id="startButton" type="button">Tap to start camera</button>
     </div>
-    <div id="status" style="font-size:1.7em;font-weight:bold;color:#d90000;text-shadow:0 0 8px #fff,0 0 16px #ffeb3b;">端末の動きを検知中...</div>
-    <button id="testBtn">テスト警告</button>
-  </div>
-  <script src="main.js"></script>
+    <div id="status">Preparing…</div>
+  </main>
+
+  <script>
+    // #KGNINJA — Required tag for repository policy compliance.
+
+    (function () {
+      const videoEl = document.getElementById('camera');
+      const canvasEl = document.getElementById('overlay');
+      const warningEl = document.getElementById('warning');
+      const statusEl = document.getElementById('status');
+      const startButton = document.getElementById('startButton');
+      const videoWrapper = document.getElementById('videoWrapper');
+      const ctx = canvasEl.getContext('2d');
+
+      const PERSON_REAL_WIDTH_METERS = 0.5;
+      const FOCAL_LENGTH_PIXELS = 600;
+      const WARNING_DISTANCE = 1.5;
+      const WARNING_TTC = 2.0;
+      const DETECTION_INTERVAL_MS = 200;
+      const MIN_SCORE = 0.4;
+
+      const previousDistances = new Map();
+      let model = null;
+      let rafId = null;
+      let lastDetectionTime = 0;
+      let detectionInFlight = false;
+      let resizeObserver = null;
+      const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent);
+
+      function showStartButton(label = 'Tap to start camera') {
+        startButton.textContent = label;
+        startButton.style.display = 'flex';
+        startButton.disabled = false;
+      }
+
+      function hideStartButton() {
+        startButton.style.display = 'none';
+      }
+
+      async function prepareBackend() {
+        try {
+          await tf.ready();
+          if (tf.getBackend() !== 'webgl') {
+            await tf.setBackend('webgl');
+            await tf.ready();
+          }
+        } catch (err) {
+          console.warn('WebGL backend unavailable, falling back to CPU', err);
+          try {
+            await tf.setBackend('cpu');
+            await tf.ready();
+          } catch (fallbackError) {
+            console.error('TensorFlow backend initialization failed', fallbackError);
+            throw fallbackError;
+          }
+        }
+      }
+
+      async function initCamera() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Camera access is not supported on this device/browser.');
+        }
+
+        const constraints = {
+          audio: false,
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        videoEl.srcObject = stream;
+        await videoEl.play();
+
+        if (videoEl.readyState >= 2) {
+          resizeCanvas();
+        } else {
+          await new Promise(resolve => {
+            videoEl.onloadedmetadata = () => {
+              resizeCanvas();
+              resolve();
+            };
+          });
+        }
+      }
+
+      function resizeCanvas() {
+        const { videoWidth, videoHeight } = videoEl;
+        if (!videoWidth || !videoHeight) {
+          return;
+        }
+
+        const dpr = window.devicePixelRatio || 1;
+        const wrapperWidth = videoWrapper.clientWidth || videoWidth;
+        const displayHeight = wrapperWidth * (videoHeight / videoWidth);
+        videoWrapper.style.height = `${displayHeight}px`;
+
+        canvasEl.width = videoWidth * dpr;
+        canvasEl.height = videoHeight * dpr;
+
+        ctx.font = `${14 * dpr}px "Segoe UI", sans-serif`;
+        ctx.lineWidth = 2 * dpr;
+      }
+
+      function clearCanvas() {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+      }
+
+      function drawRoundedRect(x, y, width, height, radius) {
+        const r = Math.min(radius, width / 2, height / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + width - r, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+        ctx.lineTo(x + width, y + height - r);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+        ctx.lineTo(x + r, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+      }
+
+      function renderPredictions(predictions) {
+        clearCanvas();
+
+        if (!videoEl.videoWidth || !videoEl.videoHeight) {
+          return;
+        }
+
+        const scaleX = canvasEl.width / videoEl.videoWidth;
+        const scaleY = canvasEl.height / videoEl.videoHeight;
+        const dpr = window.devicePixelRatio || 1;
+        ctx.font = `${14 * dpr}px "Segoe UI", sans-serif`;
+
+        let showWarning = false;
+        const now = performance.now();
+        const nextDistances = new Map();
+
+        predictions
+          .filter(pred => pred.score >= MIN_SCORE)
+          .forEach(pred => {
+            const [x, y, w, h] = pred.bbox;
+            const drawX = x * scaleX;
+            const drawY = y * scaleY;
+            const drawW = w * scaleX;
+            const drawH = h * scaleY;
+            const centerX = x + w / 2;
+            const centerY = y + h / 2;
+
+            const bucketX = Math.round(centerX / 80);
+            const bucketY = Math.round(centerY / 80);
+            const key = `${pred.class}_${bucketX}_${bucketY}`;
+
+            let distance = null;
+            if (pred.class === 'person' && w > 0) {
+              distance = (PERSON_REAL_WIDTH_METERS * FOCAL_LENGTH_PIXELS) / w;
+            }
+
+            let ttcText = '';
+            if (distance !== null) {
+              const previous = previousDistances.get(key);
+              if (previous) {
+                const dt = (now - previous.timestamp) / 1000;
+                if (dt > 0) {
+                  const speed = (distance - previous.distance) / dt;
+                  if (speed < 0) {
+                    const ttc = Math.max(distance / Math.abs(speed), 0);
+                    ttcText = `TTC: ${ttc.toFixed(1)}s`;
+                    if (ttc < WARNING_TTC) {
+                      showWarning = true;
+                    }
+                  }
+                }
+              }
+              if (distance < WARNING_DISTANCE) {
+                showWarning = true;
+              }
+              nextDistances.set(key, { distance, timestamp: now });
+            }
+
+            ctx.strokeStyle = pred.class === 'person' ? '#64ffda' : '#03a9f4';
+            drawRoundedRect(drawX, drawY, drawW, drawH, 12 * dpr);
+            ctx.stroke();
+
+            const infoLines = [`${pred.class} ${(pred.score * 100).toFixed(0)}%`];
+            if (distance !== null) {
+              infoLines.push(`Dist: ${distance.toFixed(2)}m`);
+            }
+            if (ttcText) {
+              infoLines.push(ttcText);
+            }
+
+            const textPaddingX = 6 * dpr;
+            const textPaddingY = 6 * dpr;
+            const lineHeight = 18 * dpr;
+            const textX = drawX + textPaddingX;
+            let textY = drawY + lineHeight;
+            const textWidth = Math.max(...infoLines.map(line => ctx.measureText(line).width));
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.fillRect(drawX, drawY - lineHeight, textWidth + textPaddingX * 2, infoLines.length * lineHeight + textPaddingY);
+            ctx.fillStyle = '#fff';
+            infoLines.forEach(line => {
+              ctx.fillText(line, textX, textY);
+              textY += lineHeight;
+            });
+          });
+
+        previousDistances.clear();
+        nextDistances.forEach((value, key) => previousDistances.set(key, value));
+
+        warningEl.style.display = showWarning ? 'block' : 'none';
+        statusEl.innerHTML = showWarning
+          ? '<strong>Warning active</strong> — slow down!'
+          : 'Monitoring surroundings…';
+      }
+
+      async function detectLoop(timestamp) {
+        rafId = requestAnimationFrame(detectLoop);
+
+        if (!model || detectionInFlight) {
+          return;
+        }
+
+        if (!videoEl.videoWidth || !videoEl.videoHeight) {
+          return;
+        }
+
+        if (timestamp - lastDetectionTime < DETECTION_INTERVAL_MS) {
+          return;
+        }
+
+        detectionInFlight = true;
+        lastDetectionTime = timestamp;
+
+        try {
+          const predictions = await model.detect(videoEl);
+          renderPredictions(predictions);
+        } catch (err) {
+          console.error('Detection error', err);
+          statusEl.innerHTML = 'Detection error occurred. Check console logs.';
+        } finally {
+          detectionInFlight = false;
+        }
+      }
+
+      async function startExperience() {
+        hideStartButton();
+        statusEl.innerHTML = 'Requesting camera…';
+
+        try {
+          await initCamera();
+        } catch (err) {
+          console.error('Camera access failed', err);
+          statusEl.innerHTML = 'Unable to access camera. Please allow permission and try again.';
+          showStartButton('Retry start');
+          throw err;
+        }
+
+        window.addEventListener('resize', resizeCanvas, { passive: true });
+        window.addEventListener('orientationchange', () => {
+          setTimeout(resizeCanvas, 300);
+        }, { passive: true });
+        if (window.ResizeObserver) {
+          if (resizeObserver) {
+            resizeObserver.disconnect();
+          }
+          resizeObserver = new ResizeObserver(() => resizeCanvas());
+          resizeObserver.observe(videoWrapper);
+        }
+
+        statusEl.innerHTML = 'Loading model…';
+
+        try {
+          await prepareBackend();
+          model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+        } catch (err) {
+          console.error('Model failed to load', err);
+          statusEl.innerHTML = 'Failed to load detection model. Check your connection and retry.';
+          showStartButton('Retry start');
+          throw err;
+        }
+
+        statusEl.innerHTML = 'Model loaded. Detecting…';
+        lastDetectionTime = 0;
+        detectionInFlight = false;
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+        }
+        rafId = requestAnimationFrame(detectLoop);
+      }
+
+      startButton.addEventListener('click', () => {
+        startButton.disabled = true;
+        startButton.textContent = 'Starting…';
+        startExperience().catch(() => {
+          // Errors are handled within startExperience; button will be re-enabled there.
+        });
+      });
+
+      // iOS Safari requires a user gesture to start the camera. On other platforms we auto start.
+      if (isIOS) {
+        showStartButton();
+        statusEl.innerHTML = 'Tap the button to enable the camera feed.';
+      } else {
+        startExperience().catch(() => {
+          showStartButton('Retry start');
+        });
+      }
+    })();
+  </script>
 </body>
 </html>
