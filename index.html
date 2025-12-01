@@ -93,6 +93,39 @@
       color: #64ffda;
     }
 
+    .action-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+      width: 100%;
+      margin: 0.5rem 0 1rem 0;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 999px;
+      padding: 0.9rem 1.4rem;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      color: #0b0b0b;
+      background: linear-gradient(135deg, #64ffda, #22c55e);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+      transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 38px rgba(0, 0, 0, 0.32);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+    }
+
     @media (max-width: 720px) {
       .video-wrapper {
         aspect-ratio: 9 / 16;
@@ -116,6 +149,9 @@
       <canvas id="overlay"></canvas>
       <div id="warning" style="position:absolute;inset:auto 0 0 0;margin:auto;text-align:center;padding:0.75rem;font-size:clamp(1.1rem,3vw,1.6rem);font-weight:700;color:#fff;background:linear-gradient(120deg,rgba(255,0,0,0.85),rgba(255,94,0,0.85));text-shadow:0 0 12px rgba(0,0,0,0.8);display:none;">WARNING: Collision risk!</div>
     </div>
+    <div class="action-bar">
+      <button id="armAlerts" class="btn" type="button">Enable sound & haptics</button>
+    </div>
     <div id="status">Loading model…</div>
   </main>
 
@@ -128,6 +164,7 @@
       const canvasEl = document.getElementById('overlay');
       const warningEl = document.getElementById('warning');
       const statusEl = document.getElementById('status');
+      const armAlertsBtn = document.getElementById('armAlerts');
       const ctx = canvasEl.getContext('2d');
 
       // These constants define how we approximate distance from bounding box width.
@@ -138,12 +175,32 @@
       const DETECTION_INTERVAL_MS = 200; // Run the neural network ~5 times per second.
       const MIN_SCORE = 0.4; // Confidence threshold to reduce flickering predictions.
 
+      // Track whether audio/vibration feedback is allowed (requires a user gesture on many devices).
+      let alertsArmed = false;
+      let audioContext = null;
+      let lastFeedbackTime = 0;
+
       /**
        * We keep the previous distance estimates for each coarse spatial cell so we can
        * estimate distance change rate (velocity) between frames. The key is generated
        * by combining the detection class with a down-sampled center position.
        */
       const previousDistances = new Map();
+
+      // Prepare audio/vibration on first tap to satisfy autoplay restrictions.
+      function armAlerts() {
+        alertsArmed = true;
+        statusEl.innerHTML = 'Alerts armed. Sound & haptics ready.';
+        if (!audioContext) {
+          const Ctor = window.AudioContext || window.webkitAudioContext;
+          if (Ctor) {
+            audioContext = new Ctor();
+            audioContext.resume().catch(() => {});
+          }
+        }
+      }
+
+      armAlertsBtn?.addEventListener('click', armAlerts);
 
       // Request the rear-facing camera with an HD resolution hint and handle permissions gracefully.
       async function initCamera() {
@@ -183,6 +240,29 @@
 
       window.addEventListener('resize', resizeCanvas);
       videoEl.addEventListener('loadedmetadata', resizeCanvas);
+
+      function triggerFeedback() {
+        const now = performance.now();
+        if (now - lastFeedbackTime < 1200) return; // avoid buzzing every frame
+        lastFeedbackTime = now;
+
+        if (alertsArmed && navigator.vibrate) {
+          navigator.vibrate([180, 120, 180]);
+        }
+
+        if (alertsArmed && audioContext) {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          osc.type = 'triangle';
+          osc.frequency.value = 720;
+          gain.gain.setValueAtTime(0, audioContext.currentTime);
+          gain.gain.linearRampToValueAtTime(0.18, audioContext.currentTime + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.35);
+          osc.connect(gain).connect(audioContext.destination);
+          osc.start();
+          osc.stop(audioContext.currentTime + 0.36);
+        }
+      }
 
       // Initialize the camera before loading the model so we know the canvas size.
       await initCamera();
@@ -309,6 +389,10 @@
         statusEl.innerHTML = showWarning
           ? '<strong>Warning active</strong> — slow down!'
           : 'Monitoring surroundings…';
+
+        if (showWarning) {
+          triggerFeedback();
+        }
 
         ctx.restore();
       }
